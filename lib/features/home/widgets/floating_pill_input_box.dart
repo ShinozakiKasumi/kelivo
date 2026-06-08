@@ -32,13 +32,14 @@ class FloatingPillInputBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final background = isDark
         ? darkBackground.withValues(alpha: backgroundImageActive ? 0.88 : 0.96)
-        : darkBackground.withValues(alpha: backgroundImageActive ? 0.88 : 0.96);
+        : cs.surface.withValues(alpha: backgroundImageActive ? 0.88 : 0.96);
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.10)
-        : Colors.white.withValues(alpha: 0.28);
+        : cs.outlineVariant.withValues(alpha: 0.42);
     final shadowColor = isDark
         ? Colors.black.withValues(alpha: 0.42)
         : Colors.black.withValues(alpha: 0.18);

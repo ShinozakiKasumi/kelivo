@@ -2531,7 +2531,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sideDrawerRename => 'Rename';
 
   @override
-  String get chatInputBarHint => 'Ask Gemini';
+  String chatInputBarHint(String modelName) {
+    return 'Ask $modelName';
+  }
+
+  @override
+  String get chatInputBarFallbackModelName => 'model';
 
   @override
   String get floatingAppBarOpenMenuTooltip => 'Open menu';

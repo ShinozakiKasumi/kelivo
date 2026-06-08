@@ -306,6 +306,7 @@ class HomeDesktopScaffold extends StatelessWidget {
   Widget _buildFloatingExtraAction(BuildContext context, bool topicsOnRight) {
     final actions = <Widget>[];
     final l10n = AppLocalizations.of(context)!;
+    final actionColor = _floatingActionColor(context);
 
     if (_isDesktop && topicsOnRight) {
       actions.add(
@@ -313,7 +314,7 @@ class HomeDesktopScaffold extends StatelessWidget {
           icon: Lucide.panelRight,
           size: 21,
           minSize: 44,
-          color: Colors.white.withValues(alpha: 0.62),
+          color: actionColor,
           semanticLabel: l10n.hotkeyToggleTopicPanel,
           onTap: onToggleRightSidebar,
         ),
@@ -331,7 +332,7 @@ class HomeDesktopScaffold extends StatelessWidget {
     return IosIconButton(
       size: 22,
       minSize: 44,
-      color: Colors.white.withValues(alpha: 0.62),
+      color: _floatingActionColor(context),
       semanticLabel: canToggleTemporaryConversation
           ? l10n.temporaryChatToggleTooltip
           : l10n.titleForLocale,
@@ -353,6 +354,14 @@ class HomeDesktopScaffold extends StatelessWidget {
           await onCreateNewConversation();
         }
       },
+    );
+  }
+
+  Color _floatingActionColor(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return (isDark ? Colors.white : theme.colorScheme.onSurface).withValues(
+      alpha: isDark ? 0.62 : 0.60,
     );
   }
 

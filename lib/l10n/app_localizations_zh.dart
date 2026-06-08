@@ -2437,7 +2437,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sideDrawerRename => '重命名';
 
   @override
-  String get chatInputBarHint => '询问 Gemini';
+  String chatInputBarHint(String modelName) {
+    return '询问 $modelName';
+  }
+
+  @override
+  String get chatInputBarFallbackModelName => '模型';
 
   @override
   String get floatingAppBarOpenMenuTooltip => '打开菜单';
@@ -7729,7 +7734,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get sideDrawerRename => '重命名';
 
   @override
-  String get chatInputBarHint => '询问 Gemini';
+  String chatInputBarHint(String modelName) {
+    return '询问 $modelName';
+  }
+
+  @override
+  String get chatInputBarFallbackModelName => '模型';
 
   @override
   String get floatingAppBarOpenMenuTooltip => '打开菜单';
@@ -13020,7 +13030,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get sideDrawerRename => '重新命名';
 
   @override
-  String get chatInputBarHint => '詢問 Gemini';
+  String chatInputBarHint(String modelName) {
+    return '詢問 $modelName';
+  }
+
+  @override
+  String get chatInputBarFallbackModelName => '模型';
 
   @override
   String get floatingAppBarOpenMenuTooltip => '打開選單';

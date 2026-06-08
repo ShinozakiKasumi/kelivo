@@ -4754,8 +4754,14 @@ abstract class AppLocalizations {
   /// No description provided for @chatInputBarHint.
   ///
   /// In en, this message translates to:
-  /// **'Ask Gemini'**
-  String get chatInputBarHint;
+  /// **'Ask {modelName}'**
+  String chatInputBarHint(String modelName);
+
+  /// No description provided for @chatInputBarFallbackModelName.
+  ///
+  /// In en, this message translates to:
+  /// **'model'**
+  String get chatInputBarFallbackModelName;
 
   /// No description provided for @floatingAppBarOpenMenuTooltip.
   ///

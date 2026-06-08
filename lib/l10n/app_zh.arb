@@ -829,7 +829,15 @@
   "sideDrawerNicknameLabel": "昵称",
   "sideDrawerNicknameHint": "输入新的昵称",
   "sideDrawerRename": "重命名",
-  "chatInputBarHint": "询问 Gemini",
+  "chatInputBarHint": "询问 {modelName}",
+  "@chatInputBarHint": {
+    "placeholders": {
+      "modelName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInputBarFallbackModelName": "模型",
   "floatingAppBarOpenMenuTooltip": "打开菜单",
   "floatingAppBarConversationToolsTooltip": "导出会话",
   "chatInputBarSelectModelTooltip": "选择模型",

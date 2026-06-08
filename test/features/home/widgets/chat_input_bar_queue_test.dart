@@ -82,7 +82,7 @@ void main() {
     final shellDecoration = _floatingPillDecoration(tester);
     expect(
       shellDecoration.color,
-      const Color(0xFF1E1E20).withValues(alpha: 0.96),
+      ThemeData.light().colorScheme.surface.withValues(alpha: 0.96),
     );
     expect(shellDecoration.borderRadius, BorderRadius.circular(50));
     expect(
@@ -96,7 +96,7 @@ void main() {
     expect(find.byIcon(Lucide.Plus), findsOneWidget);
     expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
     final textField = tester.widget<TextField>(find.byType(TextField));
-    expect(textField.decoration?.hintText, 'Ask Gemini');
+    expect(textField.decoration?.hintText, 'Ask model');
 
     controller.dispose();
     focusNode.dispose();
@@ -125,6 +125,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(opened, isTrue);
+
+    controller.dispose();
+    focusNode.dispose();
+  });
+
+  testWidgets('输入框占位符显示当前选中模型名', (tester) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    final settings = SettingsProvider();
+    const modelName = 'Gemini 2.5 Flash';
+    await settings.setProviderConfig(
+      'Gemini',
+      ProviderConfig(
+        id: 'Gemini',
+        enabled: true,
+        name: 'Gemini',
+        apiKey: 'test-key',
+        baseUrl: 'https://example.com',
+        providerType: ProviderKind.google,
+        modelOverrides: {
+          'gemini-2.5-flash': {'name': modelName},
+        },
+      ),
+    );
+    await settings.setCurrentModel('Gemini', 'gemini-2.5-flash');
+
+    await tester.pumpWidget(
+      buildHarness(
+        controller: controller,
+        focusNode: focusNode,
+        settingsProvider: settings,
+        onSend: (_) async => ChatInputSubmissionResult.rejected,
+      ),
+    );
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.decoration?.hintText, 'Ask $modelName');
 
     controller.dispose();
     focusNode.dispose();

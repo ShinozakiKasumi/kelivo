@@ -26,7 +26,7 @@
 [![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/us/app/kelivo/id6752122930)
 
 
-🔗 [下载最新版本](https://github.com/Chevey339/kelivo/releases/latest)
+🔗 [下载最新 fork 版本](https://github.com/ShinozakiKasumi/kelivo/releases/latest)
 
 🔗 [TestFlight](https://testflight.apple.com/join/erbGGykR) 参与测试版体验。
 
@@ -35,6 +35,8 @@
 感谢 [siliconflow.cn](https://siliconflow.cn) 与我们合作提供可免费使用的模型。
 
 ## ✨ 功能特性
+
+> 此 fork 使用 [ShinozakiKasumi/kelivo GitHub Releases](https://github.com/ShinozakiKasumi/kelivo/releases/latest) 作为应用内更新检查和版本下载来源。
 
 - 🎨 **现代化设计** - Material You 设计语言，支持动态主题色(Android12+)
 - 🌙 **深色模式** - 完美适配深色主题，保护您的眼睛
@@ -82,7 +84,7 @@
 
 如果你喜欢这个项目，可以给个Star ⭐
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Chevey339/kelivo&type=Date)](https://star-history.com/#Chevey339/kelivo&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=ShinozakiKasumi/kelivo&type=Date)](https://star-history.com/#ShinozakiKasumi/kelivo&Date)
 
 ## 📄 许可证
 
@@ -90,7 +92,7 @@
 
 ## 📞 联系我们
 
-- Issue: [GitHub Issues](https://github.com/Chevey339/kelivo/issues)
+- Issue: [GitHub Issues](https://github.com/ShinozakiKasumi/kelivo/issues)
 
 ---
 

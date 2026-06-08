@@ -25,6 +25,7 @@ import '../../../core/utils/multimodal_input_utils.dart';
 import '../../../utils/brand_assets.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../utils/app_directories.dart';
+import '../utils/model_display_helper.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import '../../../desktop/desktop_context_menu.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
@@ -327,7 +328,17 @@ class _ChatInputBarState extends State<ChatInputBar>
 
   String _hint(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return l10n.chatInputBarHint;
+    final settings = context.watch<SettingsProvider>();
+    final assistant = context.watch<AssistantProvider>().currentAssistant;
+    final modelName = getModelDisplayInfo(
+      settings,
+      assistant: assistant,
+    ).modelDisplay?.trim();
+    return l10n.chatInputBarHint(
+      modelName == null || modelName.isEmpty
+          ? l10n.chatInputBarFallbackModelName
+          : modelName,
+    );
   }
 
   /// Returns the number of lines in the input text (minimum 1).
@@ -1716,9 +1727,17 @@ class _ChatInputBarState extends State<ChatInputBar>
         : const BoxConstraints();
 
     final l10n = AppLocalizations.of(context)!;
-    final iconColor = Colors.white.withValues(alpha: 0.62);
-    final textColor = Colors.white.withValues(alpha: 0.92);
-    final hintColor = Colors.white.withValues(alpha: 0.42);
+    final isDark = theme.brightness == Brightness.dark;
+    final cs = theme.colorScheme;
+    final iconColor = (isDark ? Colors.white : cs.onSurface).withValues(
+      alpha: isDark ? 0.62 : 0.56,
+    );
+    final textColor = (isDark ? Colors.white : cs.onSurface).withValues(
+      alpha: isDark ? 0.92 : 0.90,
+    );
+    final hintColor = (isDark ? Colors.white : cs.onSurface).withValues(
+      alpha: isDark ? 0.42 : 0.46,
+    );
 
     final inputField = Stack(
       children: [
@@ -1795,7 +1814,7 @@ class _ChatInputBarState extends State<ChatInputBar>
     final topContent = (hasDocs || hasImages)
         ? Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: _buildInlineAttachmentPreviews(context, true),
+            child: _buildInlineAttachmentPreviews(context, isDark),
           )
         : null;
 

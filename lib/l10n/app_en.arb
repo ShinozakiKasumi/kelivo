@@ -1087,7 +1087,15 @@
   "sideDrawerNicknameLabel": "Nickname",
   "sideDrawerNicknameHint": "Enter new nickname",
   "sideDrawerRename": "Rename",
-  "chatInputBarHint": "Ask Gemini",
+  "chatInputBarHint": "Ask {modelName}",
+  "@chatInputBarHint": {
+    "placeholders": {
+      "modelName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInputBarFallbackModelName": "model",
   "floatingAppBarOpenMenuTooltip": "Open menu",
   "floatingAppBarConversationToolsTooltip": "Conversation export",
   "chatInputBarSelectModelTooltip": "Select Model",

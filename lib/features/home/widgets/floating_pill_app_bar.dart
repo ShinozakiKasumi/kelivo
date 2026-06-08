@@ -36,9 +36,20 @@ class FloatingPillAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final foreground = Colors.white.withValues(alpha: isDark ? 0.94 : 0.90);
-    final muted = Colors.white.withValues(alpha: isDark ? 0.58 : 0.62);
+    final foreground = (isDark ? Colors.white : cs.onSurface).withValues(
+      alpha: isDark ? 0.94 : 0.90,
+    );
+    final muted = (isDark ? Colors.white : cs.onSurface).withValues(
+      alpha: isDark ? 0.58 : 0.60,
+    );
+    final background = isDark
+        ? FloatingPillInputBox.darkBackground.withValues(alpha: 0.96)
+        : cs.surface.withValues(alpha: 0.96);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : cs.outlineVariant.withValues(alpha: 0.42);
     final shadowColor = isDark
         ? Colors.black.withValues(alpha: 0.36)
         : Colors.black.withValues(alpha: 0.18);
@@ -49,9 +60,9 @@ class FloatingPillAppBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: FloatingPillInputBox.darkBackground.withValues(alpha: 0.96),
+            color: background,
             borderRadius: BorderRadius.circular(50),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(color: borderColor),
             boxShadow: [
               BoxShadow(
                 color: shadowColor,
