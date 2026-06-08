@@ -30,6 +30,8 @@ void main() {
     String? sendButtonTooltip,
     ThemeData? theme,
     bool backgroundImageActive = false,
+    bool showMoreButton = true,
+    VoidCallback? onMore,
   }) {
     return MultiProvider(
       providers: [
@@ -57,11 +59,76 @@ void main() {
             conversationId: conversationId,
             sendButtonTooltip: sendButtonTooltip,
             backgroundImageActive: backgroundImageActive,
+            showMoreButton: showMoreButton,
+            onMore: onMore,
           ),
         ),
       ),
     );
   }
+
+  testWidgets('输入栏使用浮动 50 圆角胶囊结构', (tester) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+
+    await tester.pumpWidget(
+      buildHarness(
+        controller: controller,
+        focusNode: focusNode,
+        onSend: (_) async => ChatInputSubmissionResult.rejected,
+      ),
+    );
+
+    final shellDecoration = _floatingPillDecoration(tester);
+    expect(
+      shellDecoration.color,
+      const Color(0xFF1E1E20).withValues(alpha: 0.96),
+    );
+    expect(shellDecoration.borderRadius, BorderRadius.circular(50));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Padding &&
+            widget.padding == const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Lucide.Plus), findsOneWidget);
+    expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.decoration?.hintText, 'Ask Gemini');
+
+    controller.dispose();
+    focusNode.dispose();
+  });
+
+  testWidgets('左侧加号在平板参数下仍可打开工具', (tester) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    var opened = false;
+
+    await tester.pumpWidget(
+      buildHarness(
+        controller: controller,
+        focusNode: focusNode,
+        showMoreButton: false,
+        onMore: () {
+          opened = true;
+        },
+        onSend: (_) async => ChatInputSubmissionResult.rejected,
+      ),
+    );
+
+    expect(find.byIcon(Lucide.Plus), findsOneWidget);
+
+    await tester.tap(find.byIcon(Lucide.Plus));
+    await tester.pumpAndSettle();
+
+    expect(opened, isTrue);
+
+    controller.dispose();
+    focusNode.dispose();
+  });
 
   testWidgets('提交结果 queued 时会清空输入', (tester) async {
     final controller = TextEditingController(text: 'queued message');
@@ -331,7 +398,7 @@ void main() {
     focusNode.dispose();
   });
 
-  testWidgets('输入框在背景图模式下降低纯色覆盖', (tester) async {
+  testWidgets('输入框在背景图模式下保持深灰浮动胶囊', (tester) async {
     final controller = TextEditingController();
     final focusNode = FocusNode();
 
@@ -346,7 +413,7 @@ void main() {
     );
 
     final decoration = _mainInputDecoration(tester);
-    expect(decoration.color?.a, inExclusiveRange(0.35, 0.70));
+    expect(decoration.color?.a, closeTo(0.88, 0.01));
 
     controller.dispose();
     focusNode.dispose();
@@ -427,7 +494,7 @@ void main() {
     focusNode.dispose();
   });
 
-  testWidgets('输入框外层底部留白只下移一点', (tester) async {
+  testWidgets('输入框外层使用浮动胶囊间距', (tester) async {
     final controller = TextEditingController();
     final focusNode = FocusNode();
 
@@ -443,7 +510,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is Padding &&
-            widget.padding == const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            widget.padding == const EdgeInsets.fromLTRB(16, 4, 16, 16),
       ),
       findsOneWidget,
     );
@@ -458,23 +525,28 @@ Future<void> tapSendButton(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Finder _mainInputSurfaceFinder() {
-  return find.byWidgetPredicate(
-    (widget) =>
-        widget is Container &&
-        widget.decoration is BoxDecoration &&
-        (widget.decoration! as BoxDecoration).borderRadius ==
-            BorderRadius.circular(20),
-  );
-}
+Finder _mainInputSurfaceFinder() => _floatingPillShellFinder();
 
-BoxDecoration _mainInputDecoration(WidgetTester tester) {
+BoxDecoration _mainInputDecoration(WidgetTester tester) =>
+    _floatingPillDecoration(tester);
+
+BoxDecoration _floatingPillDecoration(WidgetTester tester) {
   final candidates = tester
-      .widgetList<Container>(_mainInputSurfaceFinder())
+      .widgetList<DecoratedBox>(_floatingPillShellFinder())
       .map((widget) => widget.decoration)
       .whereType<BoxDecoration>()
       .toList();
 
   expect(candidates, hasLength(1));
   return candidates.single;
+}
+
+Finder _floatingPillShellFinder() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is DecoratedBox &&
+        widget.decoration is BoxDecoration &&
+        (widget.decoration as BoxDecoration).borderRadius ==
+            BorderRadius.circular(50),
+  );
 }

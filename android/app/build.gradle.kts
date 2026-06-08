@@ -9,8 +9,7 @@ plugins {
 android {
     namespace = "com.psyche.kelivo"
     compileSdk = flutter.compileSdkVersion
-//    ndkVersion = flutter.ndkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = flutter.ndkVersion
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -28,26 +27,57 @@ android {
         versionName = flutter.versionName
     }
 
+    fun nonBlankEnv(name: String): String? = System.getenv(name)?.takeIf { it.isNotBlank() }
+
     val keystorePropertiesFile = rootProject.file("key.properties")
     val keystoreProperties = Properties()
     if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(keystorePropertiesFile.inputStream())
     }
 
+    fun nonBlankProperty(name: String): String? =
+        (keystoreProperties[name] as String?)?.takeIf { it.isNotBlank() }
+
+    val envStoreFile = nonBlankEnv("STORE_FILE")
+    val envStorePassword = nonBlankEnv("STORE_PASSWORD")
+    val envKeyAlias = nonBlankEnv("ALIAS")
+    val envKeyPassword = nonBlankEnv("KEY_PASSWORD")
+    val hasEnvSigning = envStoreFile != null &&
+        envStorePassword != null &&
+        envKeyAlias != null &&
+        envKeyPassword != null
+
+    val propertyStoreFile = nonBlankProperty("storeFile")
+    val propertyStorePassword = nonBlankProperty("storePassword")
+    val propertyKeyAlias = nonBlankProperty("keyAlias")
+    val propertyKeyPassword = nonBlankProperty("keyPassword")
+    val hasPropertySigning = propertyStoreFile != null &&
+        propertyStorePassword != null &&
+        propertyKeyAlias != null &&
+        propertyKeyPassword != null
+
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
+            when {
+                hasEnvSigning -> {
+                    storeFile = file(envStoreFile!!)
+                    storePassword = envStorePassword!!
+                    keyAlias = envKeyAlias!!
+                    keyPassword = envKeyPassword!!
+                }
+                hasPropertySigning -> {
+                    storeFile = file(propertyStoreFile!!)
+                    storePassword = propertyStorePassword!!
+                    keyAlias = propertyKeyAlias!!
+                    keyPassword = propertyKeyPassword!!
+                }
             }
         }
     }
 
     buildTypes {
         getByName("release") {
-            if (keystorePropertiesFile.exists()) {
+            if (hasEnvSigning || hasPropertySigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }

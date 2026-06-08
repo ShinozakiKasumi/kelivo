@@ -4337,6 +4337,66 @@ abstract class AppLocalizations {
   /// **'yyyy-MM-dd HH:mm:ss'**
   String get messageExportSheetDateTimeWithSecondsPattern;
 
+  /// No description provided for @conversationExportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export Conversation'**
+  String get conversationExportTitle;
+
+  /// No description provided for @conversationExportSaveMarkdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Markdown'**
+  String get conversationExportSaveMarkdown;
+
+  /// No description provided for @conversationExportSaveMarkdownSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this conversation as a Markdown file'**
+  String get conversationExportSaveMarkdownSubtitle;
+
+  /// No description provided for @conversationExportShareMarkdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Markdown'**
+  String get conversationExportShareMarkdown;
+
+  /// No description provided for @conversationExportShareMarkdownSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the system share sheet with a Markdown file'**
+  String get conversationExportShareMarkdownSubtitle;
+
+  /// No description provided for @conversationExportSavePlainText.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Plain Text'**
+  String get conversationExportSavePlainText;
+
+  /// No description provided for @conversationExportSavePlainTextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this conversation as a TXT file'**
+  String get conversationExportSavePlainTextSubtitle;
+
+  /// No description provided for @conversationExportSharePlainText.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Plain Text'**
+  String get conversationExportSharePlainText;
+
+  /// No description provided for @conversationExportSharePlainTextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the system share sheet with a TXT file'**
+  String get conversationExportSharePlainTextSubtitle;
+
+  /// No description provided for @conversationExportNoMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages to export'**
+  String get conversationExportNoMessages;
+
   /// No description provided for @exportDisclaimerAiGenerated.
   ///
   /// In en, this message translates to:
@@ -4694,8 +4754,20 @@ abstract class AppLocalizations {
   /// No description provided for @chatInputBarHint.
   ///
   /// In en, this message translates to:
-  /// **'Type a message for AI'**
+  /// **'Ask Gemini'**
   String get chatInputBarHint;
+
+  /// No description provided for @floatingAppBarOpenMenuTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Open menu'**
+  String get floatingAppBarOpenMenuTooltip;
+
+  /// No description provided for @floatingAppBarConversationToolsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation export'**
+  String get floatingAppBarConversationToolsTooltip;
 
   /// No description provided for @chatInputBarSelectModelTooltip.
   ///

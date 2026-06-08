@@ -1,9 +1,13 @@
 import 'dart:typed_data';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image_lib;
 
+import 'package:Kelivo/core/models/chat_message.dart';
+import 'package:Kelivo/core/models/conversation.dart';
 import 'package:Kelivo/features/chat/widgets/message_export_sheet.dart';
+import 'package:Kelivo/l10n/app_localizations.dart';
 
 Uint8List _solidPng({
   required int width,
@@ -46,6 +50,89 @@ Uint8List _blankPaddedPng({
 }
 
 void main() {
+  test(
+    'text export builders include visible chat content and default title',
+    () async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      final conversation = Conversation(
+        id: 'conversation-1',
+        title: '',
+        updatedAt: DateTime.utc(2026, 1, 2, 3, 4, 5),
+      );
+      final messages = [
+        ChatMessage(
+          id: 'message-1',
+          role: 'user',
+          content: 'Hello Gemini',
+          conversationId: conversation.id,
+          timestamp: DateTime.utc(2026, 1, 2, 3, 4, 5),
+        ),
+        ChatMessage(
+          id: 'message-2',
+          role: 'assistant',
+          content:
+              '<think>hidden reasoning</think>Visible answer [file:/tmp/doc.txt|doc.txt|text/plain]',
+          conversationId: conversation.id,
+          timestamp: DateTime.utc(2026, 1, 2, 3, 5, 5),
+        ),
+      ];
+
+      final text = buildChatMessagesTxtForTesting(
+        l10n: l10n,
+        conversation: conversation,
+        messages: messages,
+        userName: 'Tester',
+      );
+
+      expect(text, startsWith('New Chat'));
+      expect(text, contains('Tester'));
+      expect(text, contains('Assistant'));
+      expect(text, contains('Hello Gemini'));
+      expect(text, contains('Visible answer'));
+      expect(text, contains('- doc.txt (text/plain)'));
+      expect(text, isNot(contains('hidden reasoning')));
+    },
+  );
+
+  test(
+    'markdown export can include thinking and missing image references',
+    () async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      final conversation = Conversation(
+        id: 'conversation-2',
+        title: 'Export me',
+        updatedAt: DateTime.utc(2026, 1, 2, 3, 4, 5),
+      );
+      final messages = [
+        ChatMessage(
+          id: 'message-3',
+          role: 'assistant',
+          content:
+              '<think>chain of thought</think>Visible [image:/tmp/kelivo-missing-export-image.png]',
+          conversationId: conversation.id,
+          timestamp: DateTime.utc(2026, 1, 2, 3, 6, 5),
+        ),
+      ];
+
+      final markdown = await buildChatMessagesMarkdownForTesting(
+        l10n: l10n,
+        conversation: conversation,
+        messages: messages,
+        userName: 'Tester',
+        showThinkingAndToolCards: true,
+        expandThinkingContent: true,
+      );
+
+      expect(markdown, startsWith('# Export me'));
+      expect(markdown, contains('Visible'));
+      expect(markdown, contains('![image]('));
+      expect(markdown, contains('kelivo-missing-export-image.png'));
+      expect(markdown, contains('**Thinking content**'));
+      expect(markdown, contains('```text'));
+      expect(markdown, contains('chain of thought'));
+      expect(markdown, isNot(contains('<think>')));
+    },
+  );
   test('desktop export image config keeps enough source pixels for text', () {
     final config = exportImageRenderConfigForTesting(isDesktop: true);
 

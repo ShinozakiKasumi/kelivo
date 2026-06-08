@@ -58,6 +58,7 @@ class SideDrawer extends StatefulWidget {
     this.closePickerTicker,
     this.loadingConversationIds = const <String>{},
     this.embedded = false,
+    this.floating = false,
     this.embeddedWidth,
     this.showBottomBar = true,
     this.useDesktopTabs = false,
@@ -80,6 +81,7 @@ class SideDrawer extends StatefulWidget {
   final Set<String> loadingConversationIds;
   final bool
   embedded; // when true, render as a fixed side panel instead of a Drawer
+  final bool floating; // render bare content for a rounded floating shell
   final double? embeddedWidth; // optional explicit width for embedded mode
   final bool showBottomBar; // desktop can hide this bottom area
   final bool useDesktopTabs; // desktop-only: show tabs (Assistants/Topics)
@@ -2230,6 +2232,10 @@ class _SideDrawerState extends State<SideDrawer> with TickerProviderStateMixin {
       );
     }
 
+    if (widget.floating) {
+      return Material(color: Colors.transparent, child: inner);
+    }
+
     return Drawer(
       backgroundColor: cs.surface,
       width: MediaQuery.sizeOf(context).width,
@@ -4053,6 +4059,7 @@ class _AssistantInlineTileState extends State<_AssistantInlineTile> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final embedded = widget.embedded;
     final Color tileColor = _isDesktop
@@ -4109,7 +4116,7 @@ class _AssistantInlineTileState extends State<_AssistantInlineTile> {
                 padding: const EdgeInsets.all(8),
                 minSize: 36,
                 onTap: widget.onEditTap,
-                semanticLabel: 'Edit assistant',
+                semanticLabel: l10n.assistantTagsContextMenuEditAssistant,
               ),
             ],
           ],

@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 import 'image_preview_sheet.dart';
 
 import '../../../icons/lucide_adapter.dart';
@@ -86,6 +87,81 @@ String? _modelDisplayNameFromSettings(
   return name ?? (fallback.isNotEmpty ? fallback : baseId);
 }
 
+@visibleForTesting
+Future<String> buildChatMessagesMarkdownForTesting({
+  required AppLocalizations l10n,
+  required Conversation conversation,
+  required List<ChatMessage> messages,
+  required String userName,
+  Assistant? assistant,
+  bool showThinkingAndToolCards = false,
+  bool expandThinkingContent = false,
+}) {
+  return _buildChatMessagesMarkdown(
+    l10n: l10n,
+    conversation: conversation,
+    messages: messages,
+    roleNameForMessage: (msg) => _getRoleNameFromValues(
+      l10n: l10n,
+      userName: userName,
+      assistant: assistant,
+      assistantModelName: null,
+      msg: msg,
+    ),
+    showThinkingAndToolCards: showThinkingAndToolCards,
+    expandThinkingContent: expandThinkingContent,
+  );
+}
+
+@visibleForTesting
+String buildChatMessagesTxtForTesting({
+  required AppLocalizations l10n,
+  required Conversation conversation,
+  required List<ChatMessage> messages,
+  required String userName,
+  Assistant? assistant,
+  bool showThinkingAndToolCards = false,
+  bool expandThinkingContent = false,
+}) {
+  return _buildChatMessagesTxt(
+    l10n: l10n,
+    conversation: conversation,
+    messages: messages,
+    roleNameForMessage: (msg) => _getRoleNameFromValues(
+      l10n: l10n,
+      userName: userName,
+      assistant: assistant,
+      assistantModelName: null,
+      msg: msg,
+    ),
+    showThinkingAndToolCards: showThinkingAndToolCards,
+    expandThinkingContent: expandThinkingContent,
+  );
+}
+
+String _getRoleNameFromValues({
+  required AppLocalizations l10n,
+  required String userName,
+  required Assistant? assistant,
+  required String? assistantModelName,
+  required ChatMessage msg,
+}) {
+  if (msg.role == 'user') return userName;
+  if (msg.role == 'assistant') {
+    if (assistant != null &&
+        assistant.useAssistantName == true &&
+        assistant.name.trim().isNotEmpty) {
+      return assistant.name.trim();
+    }
+    final modelName = assistantModelName?.trim();
+    if (modelName != null && modelName.isNotEmpty) {
+      return modelName;
+    }
+    return l10n.messageExportSheetAssistant;
+  }
+  return msg.role;
+}
+
 String _getRoleNameFromDependencies({
   required AppLocalizations l10n,
   required SettingsProvider settings,
@@ -93,22 +169,13 @@ String _getRoleNameFromDependencies({
   required Assistant? assistant,
   required ChatMessage msg,
 }) {
-  if (msg.role == 'user') {
-    return userProvider.name;
-  }
-  if (msg.role == 'assistant') {
-    if (assistant != null &&
-        assistant.useAssistantName == true &&
-        assistant.name.trim().isNotEmpty) {
-      return assistant.name.trim();
-    }
-    final modelName = _modelDisplayNameFromSettings(settings, msg);
-    if (modelName != null && modelName.isNotEmpty) {
-      return modelName;
-    }
-    return l10n.messageExportSheetAssistant;
-  }
-  return msg.role;
+  return _getRoleNameFromValues(
+    l10n: l10n,
+    userName: userProvider.name,
+    assistant: assistant,
+    assistantModelName: _modelDisplayNameFromSettings(settings, msg),
+    msg: msg,
+  );
 }
 
 _Parsed _parseContent(String raw) {
@@ -388,6 +455,33 @@ _ExportReasoningPayload _exportReasoningPayloadForMessage(
   );
 }
 
+enum ChatTextExportDestination { save, share }
+
+enum ChatTextExportFormat { markdown, plainText }
+
+String _chatTextExportExtension(ChatTextExportFormat format) {
+  switch (format) {
+    case ChatTextExportFormat.markdown:
+      return 'md';
+    case ChatTextExportFormat.plainText:
+      return 'txt';
+  }
+}
+
+String _chatTextExportMimeType(ChatTextExportFormat format) {
+  switch (format) {
+    case ChatTextExportFormat.markdown:
+      return 'text/markdown';
+    case ChatTextExportFormat.plainText:
+      return 'text/plain';
+  }
+}
+
+String _chatTextExportFilename(ChatTextExportFormat format) {
+  final extension = _chatTextExportExtension(format);
+  return 'chat-export-${DateTime.now().millisecondsSinceEpoch}.$extension';
+}
+
 Future<void> _saveExportTextWithPicker(
   BuildContext context, {
   required String filename,
@@ -445,21 +539,196 @@ Future<void> _saveExportTextWithPicker(
   );
 }
 
+Future<void> _shareExportText(
+  BuildContext context, {
+  required String filename,
+  required String content,
+  required ChatTextExportFormat format,
+}) async {
+  final l10n = AppLocalizations.of(context)!;
+  Rect? origin;
+  final renderObject = context.findRenderObject();
+  if (renderObject is RenderBox) {
+    origin = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  try {
+    final dir = await getTemporaryDirectory();
+    final file = File(p.join(dir.path, filename));
+    await file.writeAsString(content);
+
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: _chatTextExportMimeType(format))],
+        text: filename,
+        title: filename,
+        subject: filename,
+        sharePositionOrigin: origin,
+      ),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      message: l10n.messageExportSheetExportFailed('$e'),
+      type: NotificationType.error,
+    );
+  }
+}
+
+String _conversationExportTitle(
+  AppLocalizations l10n,
+  Conversation conversation,
+) {
+  final title = conversation.title.trim();
+  return title.isNotEmpty ? title : l10n.messageExportSheetDefaultTitle;
+}
+
+Future<String> _buildChatMessagesMarkdown({
+  required AppLocalizations l10n,
+  required Conversation conversation,
+  required List<ChatMessage> messages,
+  required String Function(ChatMessage msg) roleNameForMessage,
+  required bool showThinkingAndToolCards,
+  required bool expandThinkingContent,
+}) async {
+  final thinkingLabel = l10n.messageExportThinkingContentLabel;
+  final timeFormatter = DateFormat(
+    l10n.messageExportSheetDateTimeWithSecondsPattern,
+  );
+  final includeThinking = showThinkingAndToolCards && expandThinkingContent;
+  final buf = StringBuffer();
+  buf.writeln('# ${_conversationExportTitle(l10n, conversation)}');
+  buf.writeln('');
+
+  for (final msg in messages) {
+    final time = timeFormatter.format(msg.timestamp);
+    final roleName = roleNameForMessage(msg);
+    buf.writeln('> $time · $roleName');
+    buf.writeln('');
+
+    final exportData = (msg.role == 'assistant')
+        ? _thinkingExportDataForMessage(msg)
+        : null;
+    final contentForExport = exportData?.cleanedContent ?? msg.content;
+
+    final parsed = _parseContent(contentForExport);
+    if (parsed.text.isNotEmpty) {
+      buf.writeln(parsed.text);
+      buf.writeln('');
+    }
+
+    for (final imagePath in parsed.images) {
+      final fixed = SandboxPathResolver.fix(imagePath);
+      try {
+        final file = File(fixed);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          final b64 = base64Encode(bytes);
+          final mime = _guessImageMime(fixed);
+          buf.writeln('![](data:$mime;base64,$b64)');
+        } else {
+          buf.writeln('![image]($fixed)');
+        }
+      } catch (_) {
+        buf.writeln('![image]($fixed)');
+      }
+      buf.writeln('');
+    }
+
+    for (final doc in parsed.docs) {
+      buf.writeln('- ${doc.fileName}  `(${doc.mime})`');
+    }
+
+    if (includeThinking &&
+        exportData != null &&
+        exportData.thinkingTexts.isNotEmpty) {
+      final thinking = exportData.thinkingTexts.join('\n\n').trim();
+      if (thinking.isNotEmpty) {
+        buf.writeln('');
+        buf.writeln('**$thinkingLabel**');
+        buf.writeln('');
+        buf.writeln('```text');
+        buf.writeln(thinking);
+        buf.writeln('```');
+        buf.writeln('');
+      }
+    }
+
+    buf.writeln('\n---\n');
+  }
+
+  return buf.toString();
+}
+
+String _buildChatMessagesTxt({
+  required AppLocalizations l10n,
+  required Conversation conversation,
+  required List<ChatMessage> messages,
+  required String Function(ChatMessage msg) roleNameForMessage,
+  required bool showThinkingAndToolCards,
+  required bool expandThinkingContent,
+}) {
+  final thinkingLabel = l10n.messageExportThinkingContentLabel;
+  final timeFormatter = DateFormat(
+    l10n.messageExportSheetDateTimeWithSecondsPattern,
+  );
+  final includeThinking = showThinkingAndToolCards && expandThinkingContent;
+  final buf = StringBuffer();
+  buf.writeln(_conversationExportTitle(l10n, conversation));
+  buf.writeln('');
+
+  for (final msg in messages) {
+    final time = timeFormatter.format(msg.timestamp);
+    final roleName = roleNameForMessage(msg);
+    buf.writeln('$time · $roleName');
+    buf.writeln('');
+
+    final exportData = (msg.role == 'assistant')
+        ? _thinkingExportDataForMessage(msg)
+        : null;
+    final contentForExport = exportData?.cleanedContent ?? msg.content;
+
+    final parsed = _parseContent(contentForExport);
+    if (parsed.text.isNotEmpty) {
+      buf.writeln(parsed.text);
+      buf.writeln('');
+    }
+
+    for (final doc in parsed.docs) {
+      buf.writeln('- ${doc.fileName} (${doc.mime})');
+    }
+
+    if (includeThinking &&
+        exportData != null &&
+        exportData.thinkingTexts.isNotEmpty) {
+      final thinking = exportData.thinkingTexts.join('\n\n').trim();
+      if (thinking.isNotEmpty) {
+        buf.writeln('');
+        buf.writeln('[$thinkingLabel]');
+        buf.writeln(thinking);
+        buf.writeln('');
+      }
+    }
+
+    buf.writeln('\n---\n');
+  }
+
+  return buf.toString();
+}
+
 Future<void> exportChatMessagesMarkdown(
   BuildContext context, {
   required Conversation conversation,
   required List<ChatMessage> messages,
   bool showThinkingAndToolCards = false,
   bool expandThinkingContent = false,
+  ChatTextExportDestination destination = ChatTextExportDestination.save,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final settings = context.read<SettingsProvider>();
   final userProvider = context.read<UserProvider>();
   final assistant = context.read<AssistantProvider>().currentAssistant;
-  final thinkingLabel = l10n.messageExportThinkingContentLabel;
-  final timeFormatter = DateFormat(
-    l10n.messageExportSheetDateTimeWithSecondsPattern,
-  );
   try {
     showAppSnackBar(
       context,
@@ -467,86 +736,40 @@ Future<void> exportChatMessagesMarkdown(
       type: NotificationType.info,
     );
 
-    final title = (conversation.title.trim().isNotEmpty)
-        ? conversation.title
-        : l10n.messageExportSheetDefaultTitle;
-    final includeThinking = showThinkingAndToolCards && expandThinkingContent;
-
-    final buf = StringBuffer();
-    buf.writeln('# $title');
-    buf.writeln('');
-
-    for (final msg in messages) {
-      final time = timeFormatter.format(msg.timestamp);
-      final roleName = _getRoleNameFromDependencies(
+    final filename = _chatTextExportFilename(ChatTextExportFormat.markdown);
+    final content = await _buildChatMessagesMarkdown(
+      l10n: l10n,
+      conversation: conversation,
+      messages: messages,
+      roleNameForMessage: (msg) => _getRoleNameFromDependencies(
         l10n: l10n,
         settings: settings,
         userProvider: userProvider,
         assistant: assistant,
         msg: msg,
-      );
-      buf.writeln('> $time · $roleName');
-      buf.writeln('');
-
-      final exportData = (msg.role == 'assistant')
-          ? _thinkingExportDataForMessage(msg)
-          : null;
-      final contentForExport = exportData?.cleanedContent ?? msg.content;
-
-      final parsed = _parseContent(contentForExport);
-      if (parsed.text.isNotEmpty) {
-        buf.writeln(parsed.text);
-        buf.writeln('');
-      }
-
-      for (final p in parsed.images) {
-        final fixed = SandboxPathResolver.fix(p);
-        try {
-          final f = File(fixed);
-          if (await f.exists()) {
-            final bytes = await f.readAsBytes();
-            final b64 = base64Encode(bytes);
-            final mime = _guessImageMime(fixed);
-            buf.writeln('![](data:$mime;base64,$b64)');
-          } else {
-            buf.writeln('![image]($fixed)');
-          }
-        } catch (_) {
-          buf.writeln('![image]($fixed)');
-        }
-        buf.writeln('');
-      }
-
-      for (final d in parsed.docs) {
-        buf.writeln('- ${d.fileName}  `(${d.mime})`');
-      }
-
-      if (includeThinking &&
-          exportData != null &&
-          exportData.thinkingTexts.isNotEmpty) {
-        final t = exportData.thinkingTexts.join('\n\n').trim();
-        if (t.isNotEmpty) {
-          buf.writeln('');
-          buf.writeln('**$thinkingLabel**');
-          buf.writeln('');
-          buf.writeln('```text');
-          buf.writeln(t);
-          buf.writeln('```');
-          buf.writeln('');
-        }
-      }
-
-      buf.writeln('\n---\n');
-    }
-
-    final filename = 'chat-export-${DateTime.now().millisecondsSinceEpoch}.md';
-    if (!context.mounted) return;
-    await _saveExportTextWithPicker(
-      context,
-      filename: filename,
-      content: buf.toString(),
-      allowedExtensions: const ['md'],
+      ),
+      showThinkingAndToolCards: showThinkingAndToolCards,
+      expandThinkingContent: expandThinkingContent,
     );
+    if (!context.mounted) return;
+    switch (destination) {
+      case ChatTextExportDestination.save:
+        await _saveExportTextWithPicker(
+          context,
+          filename: filename,
+          content: content,
+          allowedExtensions: const ['md'],
+        );
+        break;
+      case ChatTextExportDestination.share:
+        await _shareExportText(
+          context,
+          filename: filename,
+          content: content,
+          format: ChatTextExportFormat.markdown,
+        );
+        break;
+    }
   } catch (e) {
     if (!context.mounted) return;
     showAppSnackBar(
@@ -563,15 +786,12 @@ Future<void> exportChatMessagesTxt(
   required List<ChatMessage> messages,
   bool showThinkingAndToolCards = false,
   bool expandThinkingContent = false,
+  ChatTextExportDestination destination = ChatTextExportDestination.save,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final settings = context.read<SettingsProvider>();
   final userProvider = context.read<UserProvider>();
   final assistant = context.read<AssistantProvider>().currentAssistant;
-  final thinkingLabel = l10n.messageExportThinkingContentLabel;
-  final timeFormatter = DateFormat(
-    l10n.messageExportSheetDateTimeWithSecondsPattern,
-  );
   try {
     showAppSnackBar(
       context,
@@ -579,64 +799,40 @@ Future<void> exportChatMessagesTxt(
       type: NotificationType.info,
     );
 
-    final title = (conversation.title.trim().isNotEmpty)
-        ? conversation.title
-        : l10n.messageExportSheetDefaultTitle;
-    final includeThinking = showThinkingAndToolCards && expandThinkingContent;
-
-    final buf = StringBuffer();
-    buf.writeln(title);
-    buf.writeln('');
-
-    for (final msg in messages) {
-      final time = timeFormatter.format(msg.timestamp);
-      final roleName = _getRoleNameFromDependencies(
+    final filename = _chatTextExportFilename(ChatTextExportFormat.plainText);
+    final content = _buildChatMessagesTxt(
+      l10n: l10n,
+      conversation: conversation,
+      messages: messages,
+      roleNameForMessage: (msg) => _getRoleNameFromDependencies(
         l10n: l10n,
         settings: settings,
         userProvider: userProvider,
         assistant: assistant,
         msg: msg,
-      );
-      buf.writeln('$time · $roleName');
-      buf.writeln('');
-
-      final exportData = (msg.role == 'assistant')
-          ? _thinkingExportDataForMessage(msg)
-          : null;
-      final contentForExport = exportData?.cleanedContent ?? msg.content;
-
-      final parsed = _parseContent(contentForExport);
-      if (parsed.text.isNotEmpty) {
-        buf.writeln(parsed.text);
-        buf.writeln('');
-      }
-
-      for (final d in parsed.docs) {
-        buf.writeln('- ${d.fileName} (${d.mime})');
-      }
-
-      if (includeThinking &&
-          exportData != null &&
-          exportData.thinkingTexts.isNotEmpty) {
-        final t = exportData.thinkingTexts.join('\n\n').trim();
-        if (t.isNotEmpty) {
-          buf.writeln('');
-          buf.writeln('[$thinkingLabel]');
-          buf.writeln(t);
-          buf.writeln('');
-        }
-      }
-
-      buf.writeln('\n---\n');
-    }
-
-    final filename = 'chat-export-${DateTime.now().millisecondsSinceEpoch}.txt';
-    await _saveExportTextWithPicker(
-      context,
-      filename: filename,
-      content: buf.toString(),
-      allowedExtensions: const ['txt'],
+      ),
+      showThinkingAndToolCards: showThinkingAndToolCards,
+      expandThinkingContent: expandThinkingContent,
     );
+    if (!context.mounted) return;
+    switch (destination) {
+      case ChatTextExportDestination.save:
+        await _saveExportTextWithPicker(
+          context,
+          filename: filename,
+          content: content,
+          allowedExtensions: const ['txt'],
+        );
+        break;
+      case ChatTextExportDestination.share:
+        await _shareExportText(
+          context,
+          filename: filename,
+          content: content,
+          format: ChatTextExportFormat.plainText,
+        );
+        break;
+    }
   } catch (e) {
     if (!context.mounted) return;
     showAppSnackBar(
@@ -1317,6 +1513,63 @@ Future<void> showMessageExportSheet(
   );
 }
 
+Future<void> showConversationExportSheet(
+  BuildContext context, {
+  required Conversation conversation,
+  required List<ChatMessage> messages,
+}) async {
+  final l10n = AppLocalizations.of(context)!;
+  final exportableMessages = messages
+      .where((m) => m.role == 'user' || m.role == 'assistant')
+      .toList(growable: false);
+  if (exportableMessages.isEmpty) {
+    showAppSnackBar(
+      context,
+      message: l10n.conversationExportNoMessages,
+      type: NotificationType.info,
+    );
+    return;
+  }
+
+  final cs = Theme.of(context).colorScheme;
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        elevation: 12,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: _ConversationTextExportPanel(
+          conversation: conversation,
+          messages: exportableMessages,
+          parentContext: context,
+          desktop: true,
+        ),
+      ),
+    );
+    return;
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: cs.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) => SafeArea(
+      top: false,
+      child: _ConversationTextExportPanel(
+        conversation: conversation,
+        messages: exportableMessages,
+        parentContext: context,
+        desktop: false,
+      ),
+    ),
+  );
+}
+
 Future<void> showChatExportSheet(
   BuildContext context, {
   required Conversation conversation,
@@ -1368,6 +1621,287 @@ Future<void> showChatExportSheet(
       );
     },
   );
+}
+
+class _ConversationTextExportPanel extends StatefulWidget {
+  const _ConversationTextExportPanel({
+    required this.conversation,
+    required this.messages,
+    required this.parentContext,
+    required this.desktop,
+  });
+
+  final Conversation conversation;
+  final List<ChatMessage> messages;
+  final BuildContext parentContext;
+  final bool desktop;
+
+  @override
+  State<_ConversationTextExportPanel> createState() =>
+      _ConversationTextExportPanelState();
+}
+
+class _ConversationTextExportPanelState
+    extends State<_ConversationTextExportPanel> {
+  bool _exporting = false;
+  bool _showThinkingAndToolCards = false;
+  bool _expandThinkingContent = false;
+
+  Future<void> _runTextExport(
+    ChatTextExportFormat format,
+    ChatTextExportDestination destination,
+  ) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+
+    final pctx = widget.parentContext;
+    await Navigator.of(context).maybePop();
+    if (!pctx.mounted) return;
+
+    switch (format) {
+      case ChatTextExportFormat.markdown:
+        await exportChatMessagesMarkdown(
+          pctx,
+          conversation: widget.conversation,
+          messages: widget.messages,
+          showThinkingAndToolCards: _showThinkingAndToolCards,
+          expandThinkingContent: _expandThinkingContent,
+          destination: destination,
+        );
+        break;
+      case ChatTextExportFormat.plainText:
+        await exportChatMessagesTxt(
+          pctx,
+          conversation: widget.conversation,
+          messages: widget.messages,
+          showThinkingAndToolCards: _showThinkingAndToolCards,
+          expandThinkingContent: _expandThinkingContent,
+          destination: destination,
+        );
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.desktop) {
+      final cs = Theme.of(context).colorScheme;
+      return ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: 480,
+          maxWidth: 720,
+          maxHeight: 560,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Material(
+            color: cs.surface,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: Scrollbar(
+                      child: ListView(children: _buildOptions(context)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.62,
+      maxChildSize: 0.78,
+      minChildSize: 0.34,
+      builder: (context, scrollController) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: Text(
+                AppLocalizations.of(context)!.conversationExportTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: AppFontWeights.semibold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                children: _buildOptions(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              l10n.conversationExportTitle,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: AppFontWeights.emphasis,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.mcpPageClose,
+            icon: Icon(
+              Lucide.X,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.75),
+            ),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildOptions(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [
+      _ExportOptionTile(
+        icon: Lucide.Download,
+        title: l10n.conversationExportSaveMarkdown,
+        subtitle: l10n.conversationExportSaveMarkdownSubtitle,
+        onTap: _exporting
+            ? null
+            : () => _runTextExport(
+                ChatTextExportFormat.markdown,
+                ChatTextExportDestination.save,
+              ),
+      ),
+      _ExportOptionTile(
+        icon: Lucide.Share2,
+        title: l10n.conversationExportShareMarkdown,
+        subtitle: l10n.conversationExportShareMarkdownSubtitle,
+        onTap: _exporting
+            ? null
+            : () => _runTextExport(
+                ChatTextExportFormat.markdown,
+                ChatTextExportDestination.share,
+              ),
+      ),
+      _ExportOptionTile(
+        icon: Lucide.Download,
+        title: l10n.conversationExportSavePlainText,
+        subtitle: l10n.conversationExportSavePlainTextSubtitle,
+        onTap: _exporting
+            ? null
+            : () => _runTextExport(
+                ChatTextExportFormat.plainText,
+                ChatTextExportDestination.save,
+              ),
+      ),
+      _ExportOptionTile(
+        icon: Lucide.Share2,
+        title: l10n.conversationExportSharePlainText,
+        subtitle: l10n.conversationExportSharePlainTextSubtitle,
+        onTap: _exporting
+            ? null
+            : () => _runTextExport(
+                ChatTextExportFormat.plainText,
+                ChatTextExportDestination.share,
+              ),
+      ),
+      const SizedBox(height: 8),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          children: [
+            _buildSwitchRow(
+              context,
+              title: l10n.messageExportSheetShowThinkingAndToolCards,
+              value: _showThinkingAndToolCards,
+              onChanged: (v) {
+                setState(() {
+                  _showThinkingAndToolCards = v;
+                  if (!v) _expandThinkingContent = false;
+                });
+              },
+            ),
+            _buildSwitchRow(
+              context,
+              title: l10n.messageExportSheetShowThinkingContent,
+              value: _expandThinkingContent,
+              onChanged: _showThinkingAndToolCards
+                  ? (v) => setState(() => _expandThinkingContent = v)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildSwitchRow(
+    BuildContext context, {
+    required String title,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final isEnabled = onChanged != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                color: isEnabled
+                    ? cs.onSurface
+                    : cs.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+          IosSwitch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: cs.primary,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Desktop dialog: single message export

@@ -1,30 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
-import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/interactive_drawer.dart';
+import '../widgets/floating_drawer_panel.dart';
+import '../widgets/floating_pill_app_bar.dart';
 import '../widgets/side_drawer.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
-import '../../../core/services/haptics.dart';
-import '../../../shared/animations/widgets.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../utils/sandbox_path_resolver.dart';
-import '../widgets/assistant_avatar.dart';
-import '../widgets/assistant_entry_actions.dart';
-import 'package:Kelivo/theme/app_font_weights.dart';
 
 /// Mobile layout scaffold for the home page
-/// This widget handles only the structural layout - AppBar, drawer, body structure
-/// All message list rendering and input bar logic remain in home_page.dart
+/// This widget handles only the structural layout - floating top bar, drawer,
+/// and body structure. All message list rendering and input bar logic remain in
+/// home_page.dart.
 class HomeMobileScaffold extends StatelessWidget {
   const HomeMobileScaffold({
     super.key,
@@ -40,6 +36,7 @@ class HomeMobileScaffold extends StatelessWidget {
     required this.onSelectConversation,
     required this.onNewConversation,
     required this.onOpenMiniMap,
+    required this.onOpenConversationTools,
     required this.onCreateNewConversation,
     required this.onToggleTemporaryConversation,
     required this.onSelectModel,
@@ -67,6 +64,7 @@ class HomeMobileScaffold extends StatelessWidget {
   final void Function(String id) onSelectConversation;
   final VoidCallback onNewConversation;
   final VoidCallback onOpenMiniMap;
+  final VoidCallback onOpenConversationTools;
   final Future<void> Function() onCreateNewConversation;
   final Future<void> Function() onToggleTemporaryConversation;
   final VoidCallback onSelectModel;
@@ -85,43 +83,53 @@ class HomeMobileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
 
     return InteractiveDrawer(
       controller: drawerController,
       side: DrawerSide.left,
-      drawerWidth: MediaQuery.sizeOf(context).width * 0.75,
+      drawerWidth: (width * 0.75).clamp(0.0, width).toDouble(),
       scrimColor: cs.onSurface,
       maxScrimOpacity: 0.12,
       barrierDismissible: true,
-      drawer: SideDrawer(
-        userName: context.watch<UserProvider>().name,
-        assistantName: _getAssistantName(context),
-        closePickerTicker: assistantPickerCloseTick,
-        loadingConversationIds: loadingConversationIds,
-        globalSearchMode: globalSearchMode,
-        globalSearchQuery: globalSearchQuery,
-        onGlobalSearchQueryChanged: onGlobalSearchQueryChanged,
-        onEnterGlobalSearch: onEnterGlobalSearch,
-        onExitGlobalSearch: onExitGlobalSearch,
-        onOpenGlobalSearchResult: (conversationId, messageId) async {
-          await onOpenGlobalSearchResult(conversationId, messageId);
-          drawerController.close();
-        },
-        onSelectConversation: (id, {closeDrawer = true}) {
-          onSelectConversation(id);
-          if (closeDrawer) drawerController.close();
-        },
-        onNewConversation: ({closeDrawer = true}) async {
-          await onCreateNewConversation();
-          if (closeDrawer) drawerController.close();
-        },
+      transparentBackground: true,
+      drawer: FloatingDrawerPanel(
+        child: SideDrawer(
+          floating: true,
+          userName: context.watch<UserProvider>().name,
+          assistantName: _getAssistantName(context),
+          closePickerTicker: assistantPickerCloseTick,
+          loadingConversationIds: loadingConversationIds,
+          globalSearchMode: globalSearchMode,
+          globalSearchQuery: globalSearchQuery,
+          onGlobalSearchQueryChanged: onGlobalSearchQueryChanged,
+          onEnterGlobalSearch: onEnterGlobalSearch,
+          onExitGlobalSearch: onExitGlobalSearch,
+          onOpenGlobalSearchResult: (conversationId, messageId) async {
+            await onOpenGlobalSearchResult(conversationId, messageId);
+            drawerController.close();
+          },
+          onSelectConversation: (id, {closeDrawer = true}) {
+            onSelectConversation(id);
+            if (closeDrawer) drawerController.close();
+          },
+          onNewConversation: ({closeDrawer = true}) async {
+            await onCreateNewConversation();
+            if (closeDrawer) drawerController.close();
+          },
+        ),
       ),
       child: Scaffold(
         key: scaffoldKey,
         resizeToAvoidBottomInset: true,
         extendBodyBehindAppBar: true,
-        appBar: appBarOverride ?? _buildAppBar(context, cs),
-        body: body,
+        appBar: appBarOverride,
+        body: appBarOverride == null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [body, _buildFloatingAppBar(context)],
+              )
+            : body,
       ),
     );
   }
@@ -133,195 +141,91 @@ class HomeMobileScaffold extends StatelessWidget {
     return (n == null || n.isEmpty) ? l10n.homePageDefaultAssistant : n;
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, ColorScheme cs) {
-    final isDesktopPlatform =
-        defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux;
-    final useNewAssistantAvatarUx = context
-        .watch<SettingsProvider>()
-        .useNewAssistantAvatarUx;
+  Widget _buildFloatingAppBar(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final subtitle = providerName != null && modelDisplay != null
+        ? '$modelDisplay ($providerName)'
+        : null;
 
-    return AppBar(
-      systemOverlayStyle: (Theme.of(context).brightness == Brightness.dark)
-          ? const SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: Brightness.light,
-              statusBarBrightness: Brightness.dark,
-            )
-          : const SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: Brightness.dark,
-              statusBarBrightness: Brightness.light,
-            ),
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      leading: Builder(
-        builder: (context) {
-          return IosIconButton(
-            size: 20,
-            padding: const EdgeInsets.all(8),
-            minSize: 40,
-            builder: (color) => SvgPicture.asset(
-              'assets/icons/list.svg',
-              width: 14,
-              height: 14,
-              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-            ),
-            onTap: () {
-              onDismissKeyboard();
-              onToggleDrawer();
-            },
-          );
-        },
-      ),
-      titleSpacing: 2,
-      title: useNewAssistantAvatarUx
-          ? Row(
-              children: [
-                _buildAssistantTitleAvatar(context),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedTextSwap(
-                        text: title,
-                        style: TextStyle(
-                          fontSize: isDesktopPlatform ? 14 : 16,
-                          fontWeight: AppFontWeights.medium,
-                        ),
-                      ),
-                      if (providerName != null && modelDisplay != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: onSelectModel,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 0),
-                              child: AnimatedTextSwap(
-                                text: '$modelDisplay ($providerName)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: cs.onSurface.withValues(alpha: 0.6),
-                                  fontWeight: AppFontWeights.medium,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedTextSwap(
-                  text: title,
-                  style: TextStyle(
-                    fontSize: isDesktopPlatform ? 14 : 16,
-                    fontWeight: AppFontWeights.medium,
-                  ),
-                ),
-                if (providerName != null && modelDisplay != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: onSelectModel,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 0),
-                        child: AnimatedTextSwap(
-                          text: '$modelDisplay ($providerName)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurface.withValues(alpha: 0.6),
-                            fontWeight: AppFontWeights.medium,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-      actions: [
-        IosIconButton(
-          size: 20,
-          minSize: 44,
-          onTap: onOpenMiniMap,
-          semanticLabel: AppLocalizations.of(context)!.miniMapTooltip,
-          icon: Lucide.Map,
-        ),
-        IosIconButton(
-          size: 22,
-          minSize: 44,
-          onTap: () async {
-            if (canToggleTemporaryConversation) {
-              await onToggleTemporaryConversation();
-            } else {
-              await onCreateNewConversation();
-            }
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _statusBarStyle(context),
+        child: FloatingPillAppBar(
+          title: title,
+          subtitle: subtitle,
+          menuSemanticLabel: l10n.floatingAppBarOpenMenuTooltip,
+          toolsSemanticLabel: l10n.floatingAppBarConversationToolsTooltip,
+          trailingIcon: Lucide.Export,
+          extraAction: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IosIconButton(
+                icon: Lucide.Map,
+                size: 21,
+                minSize: 44,
+                color: Colors.white.withValues(alpha: 0.62),
+                semanticLabel: l10n.miniMapTooltip,
+                onTap: onOpenMiniMap,
+              ),
+              _buildTemporaryConversationAction(context),
+            ],
+          ),
+          onMenuTap: () {
+            onDismissKeyboard();
+            onToggleDrawer();
           },
-          semanticLabel: canToggleTemporaryConversation
-              ? AppLocalizations.of(context)!.temporaryChatToggleTooltip
-              : AppLocalizations.of(context)!.titleForLocale,
-          icon: canToggleTemporaryConversation && !temporaryConversationEnabled
-              ? Lucide.MessageCircleDashed
-              : Lucide.MessageCirclePlus,
-          builder:
-              canToggleTemporaryConversation && temporaryConversationEnabled
-              ? (color) => SvgPicture.asset(
-                  'assets/icons/temporary_chat_checked.svg',
-                  width: 22,
-                  height: 22,
-                  colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                )
-              : null,
+          onTitleTap: onSelectModel,
+          onToolsTap: onOpenConversationTools,
         ),
-        const SizedBox(width: 4),
-      ],
+      ),
     );
   }
 
-  Widget _buildAssistantTitleAvatar(BuildContext context) {
-    final assistantProvider = context.watch<AssistantProvider>();
-    final currentAssistant = assistantProvider.currentAssistant;
-    final currentAssistantId = assistantProvider.currentAssistantId;
-
-    return IosCardPress(
-      borderRadius: BorderRadius.circular(999),
-      baseColor: Colors.transparent,
-      padding: const EdgeInsets.all(2),
-      longPressTimeout: const Duration(milliseconds: 280),
-      onTap: () {
-        onDismissKeyboard();
-        onToggleDrawer();
+  Widget _buildTemporaryConversationAction(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return IosIconButton(
+      size: 22,
+      minSize: 44,
+      color: Colors.white.withValues(alpha: 0.62),
+      semanticLabel: canToggleTemporaryConversation
+          ? l10n.temporaryChatToggleTooltip
+          : l10n.titleForLocale,
+      icon: canToggleTemporaryConversation && !temporaryConversationEnabled
+          ? Lucide.MessageCircleDashed
+          : Lucide.MessageCirclePlus,
+      builder: canToggleTemporaryConversation && temporaryConversationEnabled
+          ? (color) => SvgPicture.asset(
+              'assets/icons/temporary_chat_checked.svg',
+              width: 22,
+              height: 22,
+              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            )
+          : null,
+      onTap: () async {
+        if (canToggleTemporaryConversation) {
+          await onToggleTemporaryConversation();
+        } else {
+          await onCreateNewConversation();
+        }
       },
-      onLongPress: currentAssistantId == null
-          ? null
-          : () {
-              Haptics.light();
-              AssistantEntryActions.openAssistantSettings(
-                context,
-                currentAssistantId,
-              );
-            },
-      child: AssistantAvatar(
-        assistant: currentAssistant,
-        fallbackName: _getAssistantName(context),
-        size: 28,
-      ),
+    );
+  }
+
+  SystemUiOverlayStyle _statusBarStyle(BuildContext context) {
+    if (Theme.of(context).brightness == Brightness.dark) {
+      return const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      );
+    }
+    return const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
     );
   }
 }

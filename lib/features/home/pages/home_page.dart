@@ -35,6 +35,7 @@ import '../../../desktop/world_book_popover.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../chat/widgets/bottom_tools_sheet.dart';
 import '../../chat/widgets/context_management_sheet.dart';
+import '../../chat/widgets/message_export_sheet.dart';
 import '../../chat/widgets/reasoning_budget_sheet.dart';
 import '../../search/widgets/search_settings_sheet.dart';
 import '../../model/widgets/model_select_sheet.dart';
@@ -640,6 +641,7 @@ class _HomePageState extends State<HomePage>
         await _controller.createNewConversationAnimated();
       },
       onOpenMiniMap: _openMiniMap,
+      onOpenConversationTools: _showConversationExportOptions,
       onCreateNewConversation: () async {
         await _controller.createNewConversationAnimated();
         if (mounted) {
@@ -802,6 +804,7 @@ class _HomePageState extends State<HomePage>
       onGlobalSearchQueryChanged: _controller.setGlobalSearchQuery,
       onOpenGlobalSearchResult: (convId, msgId) => _controller
           .openGlobalSearchResult(conversationId: convId, messageId: msgId),
+      onOpenConversationTools: _showConversationExportOptions,
       onSelectModel: () => showModelSelectSheet(context),
       onSidebarWidthChanged: _controller.updateSidebarWidth,
       onSidebarWidthChangeEnd: _controller.saveSidebarWidth,
@@ -1086,7 +1089,7 @@ class _HomePageState extends State<HomePage>
   }
 
   double _chatTopOverlayInset(BuildContext context) {
-    return kToolbarHeight + MediaQuery.paddingOf(context).top;
+    return MediaQuery.paddingOf(context).top + 68;
   }
 
   /// Map persisted truncateIndex (raw message count) to collapsed index.
@@ -1366,6 +1369,30 @@ class _HomePageState extends State<HomePage>
           onPreviewTap: _controller.focusUserMessageEditInput,
         ),
       ],
+    );
+  }
+
+  Future<void> _showConversationExportOptions() async {
+    final conversation = _controller.currentConversation;
+    if (conversation == null) {
+      final l10n = AppLocalizations.of(context)!;
+      showAppSnackBar(
+        context,
+        message: l10n.conversationExportNoMessages,
+        type: NotificationType.info,
+      );
+      return;
+    }
+
+    final messages = _controller
+        .allCollapsedMessagesForCurrentConversation()
+        .where((m) => m.role == 'user' || m.role == 'assistant')
+        .toList(growable: false);
+    if (!mounted) return;
+    await showConversationExportSheet(
+      context,
+      conversation: conversation,
+      messages: messages,
     );
   }
 

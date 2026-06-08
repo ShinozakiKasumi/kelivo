@@ -105,6 +105,7 @@ class InteractiveDrawer extends StatefulWidget {
     this.enableDrawerTapToClose = false,
     this.tabletMode = false,
     this.onScrimTap,
+    this.transparentBackground = false,
   });
 
   /// The main content; it will translate horizontally with the drawer progress.
@@ -152,6 +153,9 @@ class InteractiveDrawer extends StatefulWidget {
   /// Optional callback fired when the user taps the right-side scrim
   /// to dismiss the drawer (only when [barrierDismissible] and drawer is open).
   final VoidCallback? onScrimTap;
+
+  /// Keep the root material transparent for floating, non-edge-to-edge drawers.
+  final bool transparentBackground;
 
   @override
   State<InteractiveDrawer> createState() => _InteractiveDrawerState();
@@ -354,7 +358,7 @@ class _InteractiveDrawerState extends State<InteractiveDrawer>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Material(
-      color: cs.surface,
+      color: widget.transparentBackground ? Colors.transparent : cs.surface,
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (widget.tabletMode) {
