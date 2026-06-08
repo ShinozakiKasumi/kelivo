@@ -117,14 +117,14 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "✅ 签名配置已写入"
       - name: 🏗️ 构建 APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/app/outputs/symbols --shrink
 
       - name: 📦 重命名 APK
         run: |
           cd build/app/outputs/flutter-apk
           for file in app-*-release.apk; do
             abi=$(echo "$file" | sed -E 's/app-(.*)-release\.apk/\1/')
-            mv "$file" "Kelivo_android_${VERSION}_${abi}.apk"
+            mv "$file" "KelivoX_android_${VERSION}_${abi}.apk"
           done
       - name: 🚀 发布到 Release
         if: ${{ github.event.inputs.publish_release == 'true' && github.event.inputs.release_tag != '' }}
@@ -133,25 +133,25 @@ jobs:
           tag_name: ${{ github.event.inputs.release_tag }}
           name: ${{ github.event.inputs.release_tag }}
           prerelease: ${{ github.event.inputs.prerelease }}
-          files: build/app/outputs/flutter-apk/Kelivo_android_*.apk
+          files: build/app/outputs/flutter-apk/KelivoX_android_*.apk
 
       - name: 📤 上传构建产物 (arm64-v8a)
         uses: actions/upload-artifact@v4
         with:
           name: Android-arm64-v8a
-          path: build/app/outputs/flutter-apk/Kelivo_android_*_arm64-v8a.apk
+          path: build/app/outputs/flutter-apk/KelivoX_android_*_arm64-v8a.apk
 
       - name: 📤 上传构建产物 (armeabi-v7a)
         uses: actions/upload-artifact@v4
         with:
           name: Android-armeabi-v7a
-          path: build/app/outputs/flutter-apk/Kelivo_android_*_armeabi-v7a.apk
+          path: build/app/outputs/flutter-apk/KelivoX_android_*_armeabi-v7a.apk
 
       - name: 📤 上传构建产物 (x86_64)
         uses: actions/upload-artifact@v4
         with:
           name: Android-x86_64
-          path: build/app/outputs/flutter-apk/Kelivo_android_*_x86_64.apk
+          path: build/app/outputs/flutter-apk/KelivoX_android_*_x86_64.apk
 
   # iOS 构建
   ios:
@@ -192,11 +192,11 @@ jobs:
           echo "版本号: $VERSION"
       - name: 🏗️ 构建 iOS (无签名)
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --obfuscate --split-debug-info=build/ios/symbols
           cd build/ios/iphoneos
           mkdir Payload
           cp -r Runner.app Payload/
-          zip -r ../../../Kelivo_ios_${VERSION}.ipa Payload
+          zip -r ../../../KelivoX_ios_${VERSION}.ipa Payload
       - name: 🚀 发布到 Release
         if: ${{ github.event.inputs.publish_release == 'true' && github.event.inputs.release_tag != '' }}
         uses: softprops/action-gh-release@v2
@@ -204,13 +204,13 @@ jobs:
           tag_name: ${{ github.event.inputs.release_tag }}
           name: ${{ github.event.inputs.release_tag }}
           prerelease: ${{ github.event.inputs.prerelease }}
-          files: Kelivo_ios_*.ipa
+          files: KelivoX_ios_*.ipa
 
       - name: 📤 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: iOS-IPA
-          path: Kelivo_ios_*.ipa
+          path: KelivoX_ios_*.ipa
 
   # macOS 构建
   macos:
@@ -248,22 +248,22 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: 🏗️ 构建 macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --obfuscate --split-debug-info=build/macos/symbols
 
       - name: 📦 创建 DMG
         run: |
           brew install create-dmg
           create-dmg \
-            --volname "Kelivo" \
+            --volname "KelivoX" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
             --app-drop-link 600 185 \
-            "Kelivo_macos_${VERSION}.dmg" \
-            "build/macos/Build/Products/Release/kelivo.app" || true
+            "KelivoX_macos_${VERSION}.dmg" \
+            "build/macos/Build/Products/Release/kelivox.app" || true
           # 如果 create-dmg 失败，使用简单方式
-          if [ ! -f "Kelivo_macos_${VERSION}.dmg" ]; then
-            hdiutil create -volname Kelivo -srcfolder build/macos/Build/Products/Release/kelivo.app -ov -format UDZO Kelivo_macos_${VERSION}.dmg
+          if [ ! -f "KelivoX_macos_${VERSION}.dmg" ]; then
+            hdiutil create -volname KelivoX -srcfolder build/macos/Build/Products/Release/kelivox.app -ov -format UDZO KelivoX_macos_${VERSION}.dmg
           fi
       - name: 🚀 发布到 Release
         if: ${{ github.event.inputs.publish_release == 'true' && github.event.inputs.release_tag != '' }}
@@ -272,13 +272,13 @@ jobs:
           tag_name: ${{ github.event.inputs.release_tag }}
           name: ${{ github.event.inputs.release_tag }}
           prerelease: ${{ github.event.inputs.prerelease }}
-          files: Kelivo_macos_*.dmg
+          files: KelivoX_macos_*.dmg
 
       - name: 📤 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: macOS-DMG
-          path: Kelivo_macos_*.dmg
+          path: KelivoX_macos_*.dmg
 
   # Windows 构建
   windows:
@@ -331,12 +331,12 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_ENV
           Write-Host "版本号: $version"
       - name: 🏗️ 构建 Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --obfuscate --split-debug-info=build/windows/symbols
 
       - name: 📦 打包 ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "Kelivo_windows_$env:VERSION.zip"
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "KelivoX_windows_$env:VERSION.zip"
       - name: 🔧 安装 Inno Setup
         run: choco install innosetup -y
 
@@ -382,10 +382,10 @@ jobs:
           }
           # 创建 Inno Setup 脚本
           $issContent = @"
-          #define MyAppName "Kelivo"
+          #define MyAppName "KelivoX"
           #define MyAppVersion "$env:VERSION"
           #define MyAppPublisher "Psyche"
-          #define MyAppExeName "kelivo.exe"
+          #define MyAppExeName "kelivox.exe"
           [Setup]
           AppId={{A7B8C9D0-E1F2-4A5B-8C9D-0E1F2A3B4C5D}}
           AppName={#MyAppName}
@@ -394,7 +394,7 @@ jobs:
           DefaultDirName={autopf}\{#MyAppName}
           DefaultGroupName={#MyAppName}
           OutputDir=.
-          OutputBaseFilename=Kelivo_windows_{#MyAppVersion}_setup
+          OutputBaseFilename=KelivoX_windows_{#MyAppVersion}_setup
           Compression=lzma2
           SolidCompression=yes
           WizardStyle=modern
@@ -427,19 +427,19 @@ jobs:
           name: ${{ github.event.inputs.release_tag }}
           prerelease: ${{ github.event.inputs.prerelease }}
           files: |
-            Kelivo_windows_*.zip
-            Kelivo_windows_*_setup.exe
+            KelivoX_windows_*.zip
+            KelivoX_windows_*_setup.exe
       - name: 📤 上传构建产物 (ZIP)
         uses: actions/upload-artifact@v4
         with:
           name: Windows-ZIP
-          path: Kelivo_windows_*.zip
+          path: KelivoX_windows_*.zip
 
       - name: 📤 上传构建产物 (Installer)
         uses: actions/upload-artifact@v4
         with:
           name: Windows-Installer
-          path: Kelivo_windows_*_setup.exe
+          path: KelivoX_windows_*_setup.exe
 
   # Linux 构建
   linux:
@@ -488,12 +488,12 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION_NUMBER=$(echo $RAW_VERSION | cut -d'+' -f1)" >> $GITHUB_ENV
       - name: 🏗️ 构建 Linux
-        run: flutter build linux --release
+        run: flutter build linux --release --obfuscate --split-debug-info=build/linux/x64/release/symbols
 
       - name: 📦 打包 tar.gz
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../../Kelivo_linux_${VERSION}.tar.gz .
+          tar -czf ../../../../../KelivoX_linux_${VERSION}.tar.gz .
       - name: 📦 创建 AppImage
         run: |
           # 下载 appimagetool
@@ -513,16 +513,16 @@ jobs:
           HERE=${SELF%/*}
           export PATH="${HERE}/usr/bin:${PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/kelivo" "$@"
+          exec "${HERE}/usr/bin/kelivox" "$@"
           EOF
           chmod +x AppDir/AppRun
           
           # 创建 desktop 文件
-          cat > AppDir/kelivo.desktop << EOF
+          cat > AppDir/kelivox.desktop << EOF
           [Desktop Entry]
-          Name=Kelivo
-          Exec=kelivo
-          Icon=kelivo
+          Name=KelivoX
+          Exec=kelivox
+          Icon=kelivox
           Type=Application
           Categories=Utility;
           EOF
@@ -535,45 +535,45 @@ jobs:
             echo "❌ Icon source not found"
             exit 1
           fi
-          install -Dm644 "$ICON_SOURCE" AppDir/kelivo.png
-          install -Dm644 "$ICON_SOURCE" "AppDir/usr/share/icons/hicolor/256x256/apps/kelivo.png"
+          install -Dm644 "$ICON_SOURCE" AppDir/kelivox.png
+          install -Dm644 "$ICON_SOURCE" "AppDir/usr/share/icons/hicolor/256x256/apps/kelivox.png"
           
           # 构建 AppImage
-          ARCH=x86_64 ./appimagetool AppDir Kelivo_linux_${VERSION}.AppImage
+          ARCH=x86_64 ./appimagetool AppDir KelivoX_linux_${VERSION}.AppImage
       - name: 📦 创建 DEB 包
         run: |
           # 创建 DEB 目录结构
           mkdir -p deb/DEBIAN
-          mkdir -p deb/opt/kelivo
+          mkdir -p deb/opt/kelivox
           mkdir -p deb/usr/share/applications
           mkdir -p deb/usr/share/icons/hicolor/256x256/apps
           
           # 复制文件
-          cp -r build/linux/x64/release/bundle/* deb/opt/kelivo/
+          cp -r build/linux/x64/release/bundle/* deb/opt/kelivox/
           
           # 创建 /usr/bin 软链接
           mkdir -p deb/usr/bin
-          ln -s /opt/kelivo/kelivo deb/usr/bin/kelivo
+          ln -s /opt/kelivox/kelivox deb/usr/bin/kelivox
           
           # 创建 control 文件
           cat > deb/DEBIAN/control << EOF
-          Package: kelivo
+          Package: kelivox
           Version: ${VERSION_NUMBER}
           Section: utils
           Priority: optional
           Architecture: amd64
           Maintainer: Psyche <your@email.com>
           Depends: libgtk-3-0, libstdc++6, libglu1-mesa, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0, libglib2.0-0, libc6
-          Description: Kelivo Application
+          Description: KelivoX Application
            A Flutter application for Linux
           EOF
           
           # 创建 desktop 文件
-          cat > deb/usr/share/applications/kelivo.desktop << EOF
+          cat > deb/usr/share/applications/kelivox.desktop << EOF
           [Desktop Entry]
-          Name=Kelivo
-          Exec=/opt/kelivo/kelivo
-          Icon=kelivo
+          Name=KelivoX
+          Exec=/opt/kelivox/kelivox
+          Icon=kelivox
           Type=Application
           Categories=Utility;
           EOF
@@ -586,26 +586,26 @@ jobs:
             echo "❌ Icon source not found"
             exit 1
           fi
-          install -Dm644 "$ICON_SOURCE" deb/usr/share/icons/hicolor/256x256/apps/kelivo.png
+          install -Dm644 "$ICON_SOURCE" deb/usr/share/icons/hicolor/256x256/apps/kelivox.png
           
           # 创建启动脚本
-          cat > deb/opt/kelivo/kelivo.sh << 'EOF'
+          cat > deb/opt/kelivox/kelivox.sh << 'EOF'
           #!/bin/bash
           cd "$(dirname "$0")"
-          ./kelivo "$@"
+          ./kelivox "$@"
           EOF
-          chmod +x deb/opt/kelivo/kelivo.sh
+          chmod +x deb/opt/kelivox/kelivox.sh
           
           # 构建 DEB 包
-          dpkg-deb --build deb Kelivo_linux_${VERSION}_amd64.deb
+          dpkg-deb --build deb KelivoX_linux_${VERSION}_amd64.deb
       - name: 📦 创建 RPM 包
         run: |
           # 创建 RPM 构建目录
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
           
           # 创建源码目录
-          mkdir -p kelivo-${VERSION_NUMBER}
-          cp -r build/linux/x64/release/bundle/* kelivo-${VERSION_NUMBER}/
+          mkdir -p kelivox-${VERSION_NUMBER}
+          cp -r build/linux/x64/release/bundle/* kelivox-${VERSION_NUMBER}/
           ICON_SOURCE="linux/kelivo.png"
           if [ ! -f "$ICON_SOURCE" ]; then
             ICON_SOURCE="assets/app_icon.png"
@@ -614,15 +614,15 @@ jobs:
             echo "❌ Icon source not found"
             exit 1
           fi
-          cp "$ICON_SOURCE" kelivo-${VERSION_NUMBER}/kelivo.png
-          tar -czf ~/rpmbuild/SOURCES/kelivo-${VERSION_NUMBER}.tar.gz kelivo-${VERSION_NUMBER}
+          cp "$ICON_SOURCE" kelivox-${VERSION_NUMBER}/kelivox.png
+          tar -czf ~/rpmbuild/SOURCES/kelivox-${VERSION_NUMBER}.tar.gz kelivox-${VERSION_NUMBER}
           
           # 创建 spec 文件
-          cat > ~/rpmbuild/SPECS/kelivo.spec << EOF
-          Name:           kelivo
+          cat > ~/rpmbuild/SPECS/kelivox.spec << EOF
+          Name:           kelivox
           Version:        ${VERSION_NUMBER}
           Release:        1%{?dist}
-          Summary:        Kelivo Application
+          Summary:        KelivoX Application
           License:        MIT
           Source0:        %{name}-%{version}.tar.gz
           BuildArch:      x86_64
@@ -635,30 +635,30 @@ jobs:
           %setup -q
           
           %install
-          mkdir -p %{buildroot}/opt/kelivo
-          cp -r * %{buildroot}/opt/kelivo/
+          mkdir -p %{buildroot}/opt/kelivox
+          cp -r * %{buildroot}/opt/kelivox/
           
           mkdir -p %{buildroot}/usr/bin
-          ln -s /opt/kelivo/kelivo %{buildroot}/usr/bin/kelivo
+          ln -s /opt/kelivox/kelivox %{buildroot}/usr/bin/kelivox
           
           mkdir -p %{buildroot}/usr/share/applications
-          cat > %{buildroot}/usr/share/applications/kelivo.desktop << 'DESKTOPEOF'
+          cat > %{buildroot}/usr/share/applications/kelivox.desktop << 'DESKTOPEOF'
           [Desktop Entry]
-          Name=Kelivo
-          Exec=/opt/kelivo/kelivo
-          Icon=kelivo
+          Name=KelivoX
+          Exec=/opt/kelivox/kelivox
+          Icon=kelivox
           Type=Application
           Categories=Utility;
           DESKTOPEOF
 
           mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
-          cp kelivo.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/kelivo.png
+          cp kelivox.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/kelivox.png
           
           %files
-          /opt/kelivo/*
-          /usr/bin/kelivo
-          /usr/share/applications/kelivo.desktop
-          /usr/share/icons/hicolor/256x256/apps/kelivo.png
+          /opt/kelivox/*
+          /usr/bin/kelivox
+          /usr/share/applications/kelivox.desktop
+          /usr/share/icons/hicolor/256x256/apps/kelivox.png
           
           %changelog
           * $(date "+%a %b %d %Y") Psyche <your@email.com> - ${VERSION_NUMBER}-1
@@ -666,15 +666,15 @@ jobs:
           EOF
           
           # 构建 RPM
-          rpmbuild -bb ~/rpmbuild/SPECS/kelivo.spec
-          cp ~/rpmbuild/RPMS/x86_64/kelivo-${VERSION_NUMBER}-1.*.rpm Kelivo_linux_${VERSION}.rpm
+          rpmbuild -bb ~/rpmbuild/SPECS/kelivox.spec
+          cp ~/rpmbuild/RPMS/x86_64/kelivox-${VERSION_NUMBER}-1.*.rpm KelivoX_linux_${VERSION}.rpm
       - name: 🔍 RPM 元数据（调试）
         shell: bash
         run: |
           set -euxo pipefail
-          RPM_FILE="Kelivo_linux_${VERSION}.rpm"
+          RPM_FILE="KelivoX_linux_${VERSION}.rpm"
           echo "RPM file: ${RPM_FILE}"
-          cp -f ~/rpmbuild/SPECS/kelivo.spec rpm-spec.spec
+          cp -f ~/rpmbuild/SPECS/kelivox.spec rpm-spec.spec
           rpm -qp --info "${RPM_FILE}" | tee rpm-info.txt
           rpm -qp --requires "${RPM_FILE}" | tee rpm-requires.txt
           rpm -qp --provides "${RPM_FILE}" | tee rpm-provides.txt
@@ -691,7 +691,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          RPM_FILE="Kelivo_linux_${VERSION}.rpm"
+          RPM_FILE="KelivoX_linux_${VERSION}.rpm"
           docker run --rm -v "${PWD}:/work" -w /work fedora:43 bash -lc "dnf -y install ./${RPM_FILE}"
       - name: 🚀 发布到 Release
         if: ${{ github.event.inputs.publish_release == 'true' && github.event.inputs.release_tag != '' }}
@@ -701,30 +701,30 @@ jobs:
           name: ${{ github.event.inputs.release_tag }}
           prerelease: ${{ github.event.inputs.prerelease }}
           files: |
-            Kelivo_linux_*.tar.gz
-            Kelivo_linux_*.AppImage
-            Kelivo_linux_*_amd64.deb
-            Kelivo_linux_*.rpm
+            KelivoX_linux_*.tar.gz
+            KelivoX_linux_*.AppImage
+            KelivoX_linux_*_amd64.deb
+            KelivoX_linux_*.rpm
       - name: 📤 上传构建产物 (tar.gz)
         uses: actions/upload-artifact@v4
         with:
           name: Linux-tar.gz
-          path: Kelivo_linux_*.tar.gz
+          path: KelivoX_linux_*.tar.gz
 
       - name: 📤 上传构建产物 (AppImage)
         uses: actions/upload-artifact@v4
         with:
           name: Linux-AppImage
-          path: Kelivo_linux_*.AppImage
+          path: KelivoX_linux_*.AppImage
 
       - name: 📤 上传构建产物 (DEB)
         uses: actions/upload-artifact@v4
         with:
           name: Linux-DEB
-          path: Kelivo_linux_*_amd64.deb
+          path: KelivoX_linux_*_amd64.deb
 
       - name: 📤 上传构建产物 (RPM)
         uses: actions/upload-artifact@v4
         with:
           name: Linux-RPM
-          path: Kelivo_linux_*.rpm
+          path: KelivoX_linux_*.rpm

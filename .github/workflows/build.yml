@@ -121,7 +121,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ALIAS: ${{ secrets.ALIAS }}
-        run: flutter build apk --release
+        run: flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols --shrink
 
       - name: Build AAB
         env:
@@ -129,7 +129,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ALIAS: ${{ secrets.ALIAS }}
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --obfuscate --split-debug-info=build/app/outputs/symbols --shrink
 
       - name: Stage artifacts
         shell: bash
@@ -149,13 +149,13 @@ jobs:
             exit 1
           fi
 
-          cp "$apk_path" "artifacts/Kelivo-android-${VERSION}-${SIGNING_MODE}.apk"
-          cp "$aab_path" "artifacts/Kelivo-android-${VERSION}-${SIGNING_MODE}.aab"
+          cp "$apk_path" "artifacts/KelivoX-android-${VERSION}-${SIGNING_MODE}.apk"
+          cp "$aab_path" "artifacts/KelivoX-android-${VERSION}-${SIGNING_MODE}.aab"
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Kelivo-android-${{ steps.meta.outputs.version }}-${{ steps.signing.outputs.signing_mode }}
+          name: KelivoX-android-${{ steps.meta.outputs.version }}-${{ steps.signing.outputs.signing_mode }}
           path: artifacts/*
           if-no-files-found: error
 
@@ -171,7 +171,7 @@ jobs:
           set -euo pipefail
           notes_file=$(mktemp)
           cat > "$notes_file" <<EOF
-          Fork Android release for Kelivo ${VERSION}.
+          Fork Android release for KelivoX ${VERSION}.
 
           - Flutter: ${FLUTTER_VERSION}
           - Commit: ${GITHUB_SHA}
@@ -184,6 +184,6 @@ jobs:
           else
             gh release create "$TAG_NAME" artifacts/* \
               --target "$GITHUB_SHA" \
-              --title "Kelivo ${VERSION}" \
+              --title "KelivoX ${VERSION}" \
               --notes-file "$notes_file"
           fi
